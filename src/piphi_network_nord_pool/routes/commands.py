@@ -5,7 +5,8 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Request
 from piphi_runtime_kit_python.fastapi import dispatch_automation_action_from_fastapi
 
-from ..state import automations, commands
+from ..market_client import MarketDataError
+from ..state import automations, commands, refresh_config
 
 router = APIRouter(tags=["commands"])
 
@@ -59,4 +60,8 @@ async def command(payload: dict[str, Any], request: Request):
     response = result.model_dump(mode="json")
     if result.ok:
         response.update(result.result)
+        try:
+            response["state"] = await refresh_config(config_id)
+        except MarketDataError as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
     return response

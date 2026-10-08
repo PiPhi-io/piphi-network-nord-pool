@@ -125,6 +125,10 @@
       "entityType": "energy_market",
       "capabilities": [
         "connected",
+        "market_area",
+        "current_price_per_kwh",
+        "next_price_per_kwh",
+        "price_unit",
         "refresh"
       ],
       "targeting": {

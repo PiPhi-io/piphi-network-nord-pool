@@ -15,15 +15,12 @@ router = APIRouter(tags=["discovery"])
 @router.post("/discover")
 async def discover(payload: IntegrationDiscoveryRequest | None = None):
     inputs = normalize_discovery_inputs(payload.inputs if payload else None)
+    # A market area is selected by the user; it is not a LAN-discovered device.
+    area = inputs.get("market_area")
+    if not area:
+        return build_discovery_response([])
     return build_discovery_response(
-        [
-            {
-                "id": "demo-device",
-                "device_id": "demo-device",
-                "host": inputs.get("host", "127.0.0.1"),
-                "alias": "Demo Device",
-            }
-        ]
+        [{"id": str(area), "device_id": str(area), "market_area": str(area)}]
     )
 
 

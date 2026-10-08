@@ -8,13 +8,24 @@ import httpx
 import pytest
 
 from piphi_network_nord_pool.main import app
+from piphi_network_nord_pool import state
 
 
 FIXTURES = json.loads((Path(__file__).parent / "fixtures" / "contract-conformance.json").read_text())
 
 
 @pytest.mark.anyio
-async def test_runtime_conforms_to_shared_contract_fixtures() -> None:
+async def test_runtime_conforms_to_shared_contract_fixtures(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def fake_prices(**_: Any) -> dict[str, Any]:
+        return {
+            "market_area": "SE3",
+            "currency": "EUR",
+            "price_unit": "EUR/kWh",
+            "current_price_per_kwh": 0.15,
+            "next_price_per_kwh": 0.16,
+        }
+
+    monkeypatch.setattr(state, "fetch_prices", fake_prices)
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
         for fixture in FIXTURES["cases"]:

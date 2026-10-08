@@ -46,8 +46,8 @@
       "status": 200,
       "body": {
         "id": "demo-device",
-        "host": "127.0.0.1",
-        "alias": "Demo Device"
+        "market_area": "SE3",
+        "alias": "Nord Pool SE3"
       },
       "required_any_keys": [
         [
