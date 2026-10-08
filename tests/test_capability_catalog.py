@@ -120,7 +120,7 @@ async def test_config_apply_emits_the_implemented_behavior_event() -> None:
         try:
             response = await client.post(
                 "/config",
-                json={"id": config_id, "host": "127.0.0.1", "alias": "Coverage Test"},
+                json={"id": config_id, "market_area": "SE3", "alias": "Coverage Test"},
             )
             assert response.status_code == 200
             events = (await client.get("/events")).json()["events"]

@@ -2,11 +2,15 @@
   "entities": [
     {
       "id": "demo-device",
-      "name": "Demo Device",
+      "name": "Nord Pool SE3",
       "device_id": "demo-device",
       "entity_type": "energy_market",
       "capabilities": [
         "connected",
+        "market_area",
+        "current_price_per_kwh",
+        "next_price_per_kwh",
+        "price_unit",
         "refresh"
       ],
       "available_commands": [
@@ -20,9 +24,10 @@
         "allowed_widgets": [
           "tile",
           "stat",
-          "button"
+          "line-chart",
+          "external-widget"
         ],
-        "default_widget": "tile"
+        "default_widget": "stat"
       }
     }
   ],
@@ -31,14 +36,18 @@
       "kind": "sensor",
       "unit": "bool"
     },
+    "market_area": {"kind": "sensor", "unit": "text", "value_kind": "text"},
+    "current_price_per_kwh": {"kind": "sensor", "unit": "currency/kWh"},
+    "next_price_per_kwh": {"kind": "sensor", "unit": "currency/kWh"},
+    "price_unit": {"kind": "sensor", "unit": "text", "value_kind": "text"},
     "refresh": {
       "kind": "action"
     }
   },
   "commands": {
     "refresh": {
-      "description": "Refresh the device state.",
-      "timeout_ms": 5000
+      "description": "Read the latest published market prices.",
+      "timeout_ms": 20000
     }
   }
 }

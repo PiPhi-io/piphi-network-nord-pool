@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import os
+from datetime import datetime, timezone
+from time import monotonic
 from typing import Any
 
 from fastapi import HTTPException
@@ -11,9 +14,11 @@ from piphi_runtime_kit_python import (
     build_local_event_record,
     build_runtime_identity,
     create_runtime_starter,
+    schedule_telemetry_delivery,
 )
 
 from .contract import CAPABILITIES, COMMANDS
+from .market_client import MarketDataError, fetch_prices
 from .schemas import DeviceConfig
 from .settings import INTEGRATION_ID, INTEGRATION_NAME, INTEGRATION_VERSION
 
@@ -34,15 +39,17 @@ automations = AutomationRegistry(
 
 capabilities = CAPABILITIES
 commands = COMMANDS
+_next_poll: dict[str, float] = {}
 
 
 def make_entry(config: DeviceConfig) -> dict[str, Any]:
     identity = build_runtime_identity(config, integration_id=INTEGRATION_ID)
     return {
         **identity,
-        "host": config.host,
+        "market_area": config.market_area,
         "alias": config.alias,
-        "config": config.model_dump(),
+        "currency": config.currency,
+        "poll_interval_seconds": config.poll_interval_seconds,
     }
 
 
@@ -71,34 +78,92 @@ def get_entry_or_404(config_id: str) -> dict[str, Any]:
 
 async def apply_config(config: DeviceConfig) -> None:
     entry = make_entry(config)
-    registry.set(config.id, entry)
+    config_id = entry["config_id"]
+    registry.set(config_id, entry)
     registry.update_state(
-        config.id,
+        config_id,
         {
-            "connected": True,
-            "host": config.host,
-            "alias": config.alias,
-            "config_id": entry["config_id"],
+            "connected": False,
+            "market_area": config.market_area,
         },
         device_id=entry["device_id"],
     )
     append_runtime_event(
         "runtime.config.applied",
         entry,
-        {"host": config.host, "alias": config.alias},
+        {"market_area": config.market_area},
     )
+    _next_poll.pop(config_id, None)
 
 
 async def remove_config(config_id: str) -> bool:
+    _next_poll.pop(config_id, None)
     entry = registry.remove(config_id)
     if entry is None:
         return False
     append_runtime_event(
         "runtime.config.removed",
         entry,
-        {"host": entry.get("host"), "alias": entry.get("alias")},
+        {"market_area": entry.get("market_area")},
     )
     return True
+
+
+async def refresh_config(config_id: str) -> dict[str, Any]:
+    """Read a current market interval and publish only validated state."""
+    entry = get_entry_or_404(config_id)
+    try:
+        prices = await fetch_prices(
+            area=entry["market_area"],
+            currency=entry["currency"],
+            now=datetime.now(timezone.utc),
+        )
+    except MarketDataError:
+        previous = registry.state_snapshots.get(config_id, {}).get("state", {})
+        registry.update_state(
+            config_id,
+            {**previous, "connected": False},
+            device_id=entry["device_id"],
+        )
+        raise
+    latest = {
+        "connected": True,
+        "market_area": prices["market_area"],
+        "current_price_per_kwh": prices["current_price_per_kwh"],
+        "next_price_per_kwh": prices["next_price_per_kwh"],
+        "price_unit": prices["price_unit"],
+    }
+    registry.update_state(config_id, latest, device_id=entry["device_id"])
+    schedule_telemetry_delivery(
+        process_state=runtime.process_state,
+        telemetry_client=telemetry,
+        auth_context=runtime.auth,
+        config_id=entry["config_id"],
+        device_id=entry["device_id"],
+        container_id=entry.get("container_id"),
+        metrics={key: value for key, value in latest.items() if value is not None},
+        units={
+            "current_price_per_kwh": prices["price_unit"],
+            "next_price_per_kwh": prices["price_unit"],
+        },
+    )
+    return latest
+
+
+async def market_poll_loop() -> None:
+    """Poll configured areas; failures retry sooner while retaining last good price."""
+    while True:
+        for config_id in registry.ids():
+            entry = registry.get(config_id)
+            if entry is None or monotonic() < _next_poll.get(config_id, 0):
+                continue
+            try:
+                await refresh_config(config_id)
+            except MarketDataError:
+                _next_poll[config_id] = monotonic() + 60
+            else:
+                _next_poll[config_id] = monotonic() + entry["poll_interval_seconds"]
+        await asyncio.sleep(1)
 
 
 def _register_automation_actions() -> None:
@@ -139,3 +204,9 @@ def _register_automation_actions() -> None:
 
 
 _register_automation_actions()
+async def _refresh_all_state() -> None:
+    for config_id in registry.ids():
+        await refresh_config(config_id)
+
+
+starter.state.provide(_refresh_all_state, source=INTEGRATION_ID)

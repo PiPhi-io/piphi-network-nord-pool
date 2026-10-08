@@ -1,6 +1,8 @@
 # Piphi Network Nord Pool
 
-Generated PiPhi integration runtime.
+PiPhi runtime for Nord Pool day-ahead prices. It reads the published current
+and next interval for a configured bidding zone and reports the price in the
+selected currency per kWh. It does not trade or change tariffs.
 
 ## Run locally
 
@@ -36,19 +38,33 @@ daily statistics, price windows, currency conversion, VAT, adjustments,
 source health, and chart requirements. Tests enforce that only implemented
 capabilities are advertised.
 
-All calculations must use timestamped interval duration rather than assuming
-24 hourly values, so hourly and 15-minute market time units, DST days, missing
-intervals, and publication delays remain correct.
+Current and next prices use timestamped intervals; no fixed number of hourly
+samples is assumed. Missing current data marks the feed unavailable. A missing
+tomorrow publication does not erase a valid current price. Daily statistics,
+price-window actions, and chart widgets remain planned.
+
+The public data-portal endpoint serves published auction prices, but it is not
+Nord Pool's subscription-based Market Data API and has no guaranteed uptime or
+schema stability. On a failed refresh, the runtime retains the last good price
+and marks `connected=false`. The `telemetry/example` compatibility routes now
+refresh real market data rather than sending fabricated samples.
 
 ## Manifest
 
-`manifest.json` is a starter manifest. Before publishing, update:
+The read-only Widget SDK card is in `widgets/nord-pool-price`. Its local bundle
+is declared in `manifest.json`; the Core simulator installer can package it
+from the checkout without a marketplace release. In the manifest-driven lab,
+set `market_area` to `SE3`, `price_unit` to `EUR/kWh`, and the two price metrics
+to realistic numbers through `/__simulator/metrics`. Those values are
+explicitly synthetic and do not prove live API behavior.
+
+`manifest.json` remains draft. Before publishing, verify:
 
 - `image`
 - `version`
-- capabilities and commands
-- config fields and identity fields
-- entity metadata
+- live API behavior and public endpoint terms
+- a Core attach and live-widget visual check
+- market-area and currency coverage
 
 ## Docker
 

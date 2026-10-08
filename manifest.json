@@ -72,10 +72,9 @@
     "endpoint": "/ui-config",
     "required": true,
     "editable_fields": [
-      "host",
+      "market_area",
       "alias",
-      "base_url",
-      "api_key",
+      "currency",
       "poll_interval_seconds"
     ],
     "runtime_fields": [
@@ -85,12 +84,12 @@
       "device_id"
     ],
     "identity_fields": [
-      "host"
+      "market_area"
     ]
   },
   "identity": {
     "fields": [
-      "host"
+      "market_area"
     ]
   },
   "capabilities": {
@@ -98,24 +97,46 @@
       "kind": "sensor",
       "unit": "bool"
     },
+    "market_area": {
+      "kind": "sensor",
+      "unit": "text",
+      "value_kind": "text"
+    },
+    "current_price_per_kwh": {
+      "kind": "sensor",
+      "unit": "currency/kWh"
+    },
+    "next_price_per_kwh": {
+      "kind": "sensor",
+      "unit": "currency/kWh"
+    },
+    "price_unit": {
+      "kind": "sensor",
+      "unit": "text",
+      "value_kind": "text"
+    },
     "refresh": {
       "kind": "action"
     }
   },
   "commands": {
     "refresh": {
-      "description": "Refresh the device state.",
-      "timeout_ms": 5000
+      "description": "Read the latest published market prices.",
+      "timeout_ms": 20000
     }
   },
   "entities": [
     {
       "id": "demo-device",
-      "name": "Demo Device",
+      "name": "Nord Pool market",
       "device_id": "demo-device",
       "entity_type": "energy_market",
       "capabilities": [
         "connected",
+        "market_area",
+        "current_price_per_kwh",
+        "next_price_per_kwh",
+        "price_unit",
         "refresh"
       ],
       "available_commands": [
@@ -129,12 +150,50 @@
         "allowed_widgets": [
           "tile",
           "stat",
-          "button"
+          "line-chart",
+          "external-widget"
         ],
-        "default_widget": "tile"
+        "default_widget": "stat"
       }
     }
   ],
+  "ui": {
+    "widget_packages": [
+      {
+        "id": "io.piphi.nord-pool.price",
+        "name": "Nord Pool price",
+        "version": "0.1.1",
+        "entry": "/widgets/nord-pool-price/dist/widget.js",
+        "runtime": "prebuilt_bundle",
+        "certification": {
+          "verified_gates": ["runtime", "persistence", "binding", "states", "responsive", "themes", "accessibility", "save-reload", "performance"],
+          "evidence": {
+            "runtime": ["core-profile:sandbox-host-v1/runtime"],
+            "persistence": ["core-profile:sandbox-host-v1/persistence"],
+            "binding": ["widgets/nord-pool-price/test/widget.test.mjs"],
+            "states": ["widgets/nord-pool-price/test/widget.test.mjs"],
+            "responsive": ["widgets/nord-pool-price/test/widget.test.mjs"],
+            "themes": ["widgets/nord-pool-price/test/widget.test.mjs"],
+            "accessibility": ["widgets/nord-pool-price/test/widget.test.mjs"],
+            "save-reload": ["core-profile:sandbox-host-v1/save-reload"],
+            "performance": ["core-profile:sandbox-host-v1/performance"]
+          }
+        },
+        "host_bridge": {"protocol": "piphi.widget.host", "version": "1", "events": ["ready", "resize"]},
+        "binding_modes": ["read"],
+        "value_kinds": ["numeric", "boolean", "text"],
+        "capability_requirements": ["connected", "market_area", "current_price_per_kwh", "next_price_per_kwh", "price_unit"],
+        "sdk_compatibility": {"minimum": "0.5.1"},
+        "settings_schema_version": "1",
+        "settings": [
+          {"id": "title", "type": "text", "label": "Title", "default": "Electricity price"},
+          {"id": "device", "type": "device", "label": "Nord Pool market", "required": true}
+        ],
+        "layout": {"min_height": 120, "default_height": 140, "max_height": 220},
+        "security": {"permissions": [], "sandbox": ["allow-scripts"], "csp": {"connect_src": []}}
+      }
+    ]
+  },
   "marketplace": {
     "metadata_version": 2,
     "display_name": "Nord Pool",

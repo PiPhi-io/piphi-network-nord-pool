@@ -19,79 +19,77 @@ ENDPOINTS = {
 REQUIRED_ENDPOINTS = ["health", "entities", "command", "config", "ui_config"]
 
 CAPABILITIES: dict[str, dict[str, Any]] = {
-    "connected": {
-        "kind": "sensor",
-        "unit": "bool"
-    },
-    "refresh": {
-        "kind": "action"
-    }
+    "connected": {"kind": "sensor", "unit": "bool"},
+    "market_area": {"kind": "sensor", "unit": "text", "value_kind": "text"},
+    "current_price_per_kwh": {"kind": "sensor", "unit": "currency/kWh"},
+    "next_price_per_kwh": {"kind": "sensor", "unit": "currency/kWh"},
+    "price_unit": {"kind": "sensor", "unit": "text", "value_kind": "text"},
+    "refresh": {"kind": "action"},
 }
 
 COMMANDS: dict[str, dict[str, Any]] = {
     "refresh": {
-        "description": "Refresh the device state.",
-        "timeout_ms": 5000
+        "description": "Read the latest published market prices.",
+        "timeout_ms": 20000
     }
 }
 
 CONFIG_SCHEMA: dict[str, Any] = {
     "schema": {
-        "title": "Piphi Network Nord Pool Setup",
+        "title": "Nord Pool market area",
         "type": "object",
         "required": [
-            "host"
+            "market_area"
         ],
         "properties": {
-            "host": {
+            "market_area": {
                 "type": "string",
-                "title": "Host"
+                "title": "Market area",
+                "description": "Nord Pool bidding zone, for example SE3 or NO1."
             },
             "alias": {
                 "type": "string",
                 "title": "Alias"
             },
-            "base_url": {
+            "currency": {
                 "type": "string",
-                "title": "Base URL"
-            },
-            "api_key": {
-                "type": "string",
-                "title": "API Key"
+                "title": "Currency",
+                "enum": ["EUR", "SEK", "NOK", "DKK", "GBP"],
+                "default": "EUR"
             },
             "poll_interval_seconds": {
                 "type": "integer",
                 "title": "Poll Interval Seconds",
-                "minimum": 15
+                "minimum": 900,
+                "maximum": 86400,
+                "default": 3600
             }
         }
     },
     "uiSchema": {
-        "host": {
-            "placeholder": "192.168.1.50"
+        "market_area": {
+            "placeholder": "SE3"
         },
         "alias": {
-            "placeholder": "Office Device"
-        },
-        "base_url": {
-            "placeholder": "https://api.vendor.example"
-        },
-        "api_key": {
-            "placeholder": "secret-token"
+            "placeholder": "Home electricity market"
         },
         "poll_interval_seconds": {
-            "placeholder": "60"
+            "placeholder": "3600"
         }
     }
 }
 
 FALLBACK_ENTITY: dict[str, Any] = {
     "id": "demo-device",
-    "name": "Demo Device",
+    "name": "Nord Pool market",
     "device_id": "demo-device",
     "entity_type": "energy_market",
     "capabilities": [
         "connected",
+        "market_area",
+        "current_price_per_kwh",
+        "next_price_per_kwh",
+        "price_unit",
         "refresh"
     ],
     "available_commands": [
@@ -105,8 +103,9 @@ FALLBACK_ENTITY: dict[str, Any] = {
         "allowed_widgets": [
             "tile",
             "stat",
-            "button"
+            "line-chart",
+            "external-widget"
         ],
-        "default_widget": "tile"
+        "default_widget": "stat"
     }
 }
